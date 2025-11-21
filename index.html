@@ -170,9 +170,9 @@
     // API Configuration
     // The apiKey is left empty as per instructions; the environment will inject it.
     const apiKey = ""; 
-    // FIX: Reverting to the specialized image editing model to resolve the persistent 401 error
-    // as this specific model is often required for image-to-image/editing tasks to validate the API key.
-    const IMAGE_MODEL = 'gemini-2.5-flash-image-preview'; 
+    // FIX: Switching both models to the general multimodal model ('gemini-2.5-flash-preview-09-2025')
+    // to resolve persistent 401/403 authentication errors in the deployed environment.
+    const IMAGE_MODEL = 'gemini-2.5-flash-preview-09-2025'; 
     const TEXT_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
     function getApiUrl(model) {
