@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drift Livery AI Designer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a modern, dark theme */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Dark background */
+            color: #c9d1d9; /* Light text */
+        }
+        .container {
+            max-width: 900px;
+        }
+        .card {
+            background-color: #161b22; /* Slightly lighter dark card background */
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .upload-area {
+            border: 2px dashed #444c56;
+            transition: border-color 0.2s;
+        }
+        .upload-area.dragover {
+            border-color: #58a6ff;
+            background-color: #243040;
+        }
+        /* Spinner for image generation */
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #58a6ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        /* Spinner for text generation/analysis */
+        .text-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top: 2px solid #34d399; /* Green for text operations */
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mx-auto p-4 md:p-8">
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-400">
+        AO Livery Customizer
+    </h1>
+    <p class="text-center text-gray-400 mb-8">
+        Upload your car livery Ambient Occlusion (AO) PNG. Optionally, add a reference livery image and/or a text prompt. The AI will then generate a new custom drift livery.
+    </p>
+
+    <!-- Main Application Card (Livery Designer) --><div class="card rounded-xl p-6 md:p-8 mb-8">
+        <h2 class="text-2xl font-semibold mb-6 text-gray-100">1. Generate Livery</h2>
+        
+        <!-- Input Section --><div id="inputSection" class="space-y-6">
+            
+            <!-- AO Map Upload --><div>
+                <label class="block text-xl font-medium text-gray-300 mb-2">Upload Car AO Map (PNG)</label>
+                <div id="aoUploadSection" class="upload-area p-8 text-center rounded-lg cursor-pointer transition"
+                     onclick="document.getElementById('aoFileInput').click()">
+                    <img id="aoPreviewImage" class="mx-auto max-h-48 rounded mb-4 object-contain hidden" src="" alt="AO Map Preview">
+                    <svg id="aoUploadIcon" class="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 014 4v2m-5 4H9m7-4l-3-3m0 0l-3 3"/>
+                    </svg>
+                    <p class="mt-2 text-sm font-medium text-gray-300">
+                        Drag and drop your **AO PNG** here, or click to select file
+                    </p>
+                    <p id="aoFileName" class="text-xs text-gray-500 mt-1">No file selected.</p>
+                    <input type="file" id="aoFileInput" accept="image/png" class="hidden" onchange="handleFileSelect(event, 'ao')">
+                </div>
+            </div>
+
+            <!-- Reference Livery Upload --><div>
+                <label class="block text-xl font-medium text-gray-300 mb-2">Upload Reference Livery Image (Optional)</label>
+                <div id="refUploadSection" class="upload-area p-8 text-center rounded-lg cursor-pointer transition"
+                     onclick="document.getElementById('refFileInput').click()">
+                    <img id="refPreviewImage" class="mx-auto max-h-48 rounded mb-4 object-contain hidden" src="" alt="Reference Livery Preview">
+                    <svg id="refUploadIcon" class="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 014 4v2m-5 4H9m7-4l-3-3m0 0l-3 3"/>
+                    </svg>
+                    <p class="mt-2 text-sm font-medium text-gray-300">
+                        Drag and drop a **Reference Image** here, or click to select file
+                    </p>
+                    <p id="refFileName" class="text-xs text-gray-500 mt-1">No file selected.</p>
+                    <input type="file" id="refFileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event, 'ref')">
+                </div>
+            </div>
+            
+            <!-- Custom Livery Style Prompt & Enhancer --><div>
+                <label for="stylePrompt" class="block text-xl font-medium text-gray-300 pt-2 flex justify-between items-center">
+                    <span>Livery Style Prompt (Optional)</span>
+                    <button id="enhancePromptButton" onclick="enhanceLiveryPrompt()" class="text-green-400 hover:text-green-300 text-xs font-medium px-2 py-1 rounded transition disabled:opacity-50 flex items-center" disabled>
+                        ✨ Enhance Prompt
+                    </button>
+                </label>
+                <textarea id="stylePrompt" rows="3" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm focus:ring-blue-500 focus:border-blue-500 text-white" placeholder="e.g., 'A teal and magenta vaporwave aesthetic livery with geometric patterns' or 'Red, black, and gold Oni mask style with lightning bolts'"></textarea>
+                <div id="enhanceLoading" class="hidden text-sm text-green-400 mt-1 flex items-center">
+                    <div class="text-spinner mr-2"></div> AI is refining your prompt...
+                </div>
+            </div>
+
+            <button id="generateButton" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-300 disabled:bg-gray-700 disabled:text-gray-500" 
+                    onclick="generateLivery()" 
+                    disabled>
+                Generate Drift Livery
+            </button>
+            
+            <div id="errorMessage" class="text-red-400 text-center hidden p-2 rounded-lg bg-red-900/30"></div>
+        </div>
+
+        <!-- Output Section --><div id="outputSection" class="mt-8 pt-6 border-t border-gray-700 hidden">
+            <h2 class="text-xl font-semibold mb-4 text-gray-200">Generated Livery</h2>
+            <div id="statusMessage" class="flex items-center justify-center p-4 rounded-lg bg-yellow-900/30 text-yellow-300 hidden">
+                <div class="loading-spinner mr-3"></div>
+                Generating livery, please wait...
+            </div>
+            
+            <div id="imageContainer" class="flex flex-col items-center">
+                <img id="resultImage" class="rounded-lg shadow-2xl max-w-full h-auto mb-4 border border-gray-700" alt="Generated Livery" style="display:none;">
+                <button id="downloadButton" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-300 hidden" onclick="downloadImage()">
+                    Download Livery
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Drift Analyst Section REMOVED --></div>
+
+<script>
+    // --- Environment & State ---
+    let selectedAOFileBase64 = null;
+    let selectedRefFileBase64 = null; // New state for reference image
+
+    const generateButton = document.getElementById('generateButton');
+    const aoFileInput = document.getElementById('aoFileInput');
+    const aoFileNameDisplay = document.getElementById('aoFileName');
+    const aoUploadSection = document.getElementById('aoUploadSection');
+    const aoPreviewImage = document.getElementById('aoPreviewImage');
+    const aoUploadIcon = document.getElementById('aoUploadIcon');
+
+    const refFileInput = document.getElementById('refFileInput');
+    const refFileNameDisplay = document.getElementById('refFileName');
+    const refUploadSection = document.getElementById('refUploadSection');
+    const refPreviewImage = document.getElementById('refPreviewImage');
+    const refUploadIcon = document.getElementById('refUploadIcon');
+
+    const errorMessage = document.getElementById('errorMessage');
+    const statusMessage = document.getElementById('statusMessage');
+    const resultImage = document.getElementById('resultImage');
+    const downloadButton = document.getElementById('downloadButton');
+    const outputSection = document.getElementById('outputSection');
+    const stylePromptInput = document.getElementById('stylePrompt');
+    const enhancePromptButton = document.getElementById('enhancePromptButton');
+    const enhanceLoading = document.getElementById('enhanceLoading');
+
+    // API Configuration
+    // The apiKey is left empty as per instructions; the environment will inject it.
+    const apiKey = ""; 
+    // FIX: Reverting to the specialized image editing model to resolve the persistent 401 error
+    // as this specific model is often required for image-to-image/editing tasks to validate the API key.
+    const IMAGE_MODEL = 'gemini-2.5-flash-image-preview'; 
+    const TEXT_MODEL = 'gemini-2.5-flash-preview-09-2025';
+
+    function getApiUrl(model) {
+        return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    }
+
+    // Utility function for converting File to Base64
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            if (!file) {
+                return reject(new Error("No file provided."));
+            }
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // --- UI Update & File Handling ---
+
+    function updateGenerateButtonState() {
+        generateButton.disabled = !selectedAOFileBase64 || (stylePromptInput.value.trim() === '' && !selectedRefFileBase64);
+        enhancePromptButton.disabled = stylePromptInput.value.trim() === '';
+    }
+
+    function updateUI(file, type) {
+        let fileNameElem, previewImgElem, uploadIconElem;
+        
+        if (type === 'ao') {
+            fileNameElem = aoFileNameDisplay;
+            previewImgElem = aoPreviewImage;
+            uploadIconElem = aoUploadIcon;
+            selectedAOFileBase64 = file ? file.base64 : null;
+        } else if (type === 'ref') {
+            fileNameElem = refFileNameDisplay;
+            previewImgElem = refPreviewImage;
+            uploadIconElem = refUploadIcon;
+            selectedRefFileBase64 = file ? file.base64 : null;
+        }
+
+        if (file) {
+            fileNameElem.textContent = file.name;
+            previewImgElem.src = file.base64;
+            previewImgElem.classList.remove('hidden');
+            uploadIconElem.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+        } else {
+            fileNameElem.textContent = 'No file selected.';
+            previewImgElem.src = '';
+            previewImgElem.classList.add('hidden');
+            uploadIconElem.classList.remove('hidden');
+        }
+        updateGenerateButtonState();
+    }
+
+    async function handleFileSelect(event, type) {
+        const file = event.target.files[0];
+        if (!file) {
+            updateUI(null, type);
+            return;
+        }
+
+        if (type === 'ao' && file.type !== 'image/png') {
+            showError("The AO Map must be a PNG image file.");
+            updateUI(null, type);
+            return;
+        }
+        // Reference image can be any image type
+        if (type === 'ref' && !file.type.startsWith('image/')) {
+            showError("The Reference Livery must be an image file.");
+            updateUI(null, type);
+            return;
+        }
+
+        try {
+            const base64String = await fileToBase64(file);
+            updateUI({ name: file.name, base64: base64String }, type);
+        } catch (error) {
+            console.error("Error reading file:", error);
+            showError(`Could not read the ${type === 'ao' ? 'AO' : 'reference'} file. Please try a different image.`);
+            updateUI(null, type);
+        }
+    }
+
+    // Drag and Drop listeners for AO Map
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        aoUploadSection.addEventListener(eventName, preventDefaults, false);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+        aoUploadSection.addEventListener(eventName, () => aoUploadSection.classList.add('dragover'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        aoUploadSection.addEventListener(eventName, () => aoUploadSection.classList.remove('dragover'), false);
+    });
+    aoUploadSection.addEventListener('drop', (e) => handleDrop(e, 'ao'), false);
+
+    // Drag and Drop listeners for Reference Livery
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        refUploadSection.addEventListener(eventName, preventDefaults, false);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+        refUploadSection.addEventListener(eventName, () => refUploadSection.classList.add('dragover'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        refUploadSection.addEventListener(eventName, () => refUploadSection.classList.remove('dragover'), false);
+    });
+    refUploadSection.addEventListener('drop', (e) => handleDrop(e, 'ref'), false);
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleDrop(e, type) {
+        let dt = e.dataTransfer;
+        let files = dt.files;
+        if (files.length > 0) {
+            if (type === 'ao') {
+                aoFileInput.files = files;
+                handleFileSelect({ target: aoFileInput }, 'ao');
+            } else if (type === 'ref') {
+                refFileInput.files = files;
+                handleFileSelect({ target: refFileInput }, 'ref');
+            }
+        }
+    }
+
+    // Listen for changes in the text prompt to enable/disable the generate button
+    stylePromptInput.addEventListener('input', updateGenerateButtonState);
+
+
+    // --- Error and Status Display ---
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('hidden');
+        statusMessage.classList.add('hidden');
+        updateGenerateButtonState(); 
+    }
+
+    function showLoading(isLoading) {
+        updateGenerateButtonState(); // Update state based on current files
+        generateButton.disabled = isLoading; // Disable generation if loading
+        statusMessage.classList.toggle('hidden', !isLoading);
+        if (isLoading) {
+             resultImage.style.display = 'none';
+             downloadButton.classList.add('hidden');
+        }
+        outputSection.classList.toggle('hidden', !isLoading && !resultImage.src);
+    }
+    
+    // --- API Call Utility ---
+    
+    // Utility for exponential backoff retry logic
+    async function fetchWithBackoff(url, options, maxRetries = 5) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (response.status !== 429 && response.ok) {
+                    return response;
+                } else if (response.status === 429 && i < maxRetries - 1) {
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                } else {
+                    // Check for 401/403 specifically to surface a better error
+                    if (response.status === 401 || response.status === 403) {
+                         throw new Error(`Authentication Error: Received status ${response.status}. The model or API key setup may be incorrect.`);
+                    }
+                    throw new Error(`API Request failed with status ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                if (i === maxRetries - 1) throw error;
+                const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+
+    // --- 1a. Livery Prompt Enhancement (Text-to-Text) ---
+
+    async function enhanceLiveryPrompt() {
+        const inputPrompt = stylePromptInput.value.trim();
+        if (!inputPrompt) {
+            stylePromptInput.placeholder = "Please enter a short description first!";
+            return;
+        }
+
+        enhancePromptButton.disabled = true;
+        enhanceLoading.classList.remove('hidden');
+
+        const systemPrompt = "You are an expert automotive livery designer and a creative prompt engineer for image generation AI. Your task is to take a brief, user-provided style description and expand it into a detailed, vibrant, and evocative prompt (no more than 50 words) suitable for high-quality, aggressive drift livery generation. Focus on color palettes, design elements (e.g., geometric, organic, Japanese motifs), and textures. Do not include any mention of sponsors, logos, or brand names. Output only the refined prompt text.";
+        const userQuery = `Expand this style description into a detailed prompt: "${inputPrompt}"`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+        };
+
+        const options = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        };
+
+        try {
+            const response = await fetchWithBackoff(getApiUrl(TEXT_MODEL), options);
+            const result = await response.json();
+            const enhancedText = result?.candidates?.[0]?.content?.parts?.[0]?.text || inputPrompt;
+            
+            stylePromptInput.value = enhancedText.trim();
+            // Show a temporary success message
+            const originalText = enhancePromptButton.textContent;
+            enhancePromptButton.textContent = "✅ Enhanced!";
+            setTimeout(() => {
+                enhancePromptButton.textContent = originalText;
+            }, 1500);
+
+        } catch (error) {
+            console.error("Prompt Enhancement Error:", error);
+            showError(`Prompt Enhancement failed: ${error.message}`);
+        } finally {
+            enhanceLoading.classList.add('hidden');
+            enhancePromptButton.disabled = false;
+        }
+    }
+
+    // --- 1b. Livery Generation Logic (Image-to-Image) ---
+
+    async function generateLivery() {
+        if (!selectedAOFileBase64) {
+            showError("Please upload a PNG AO map file first.");
+            return;
+        }
+        if (stylePromptInput.value.trim() === '' && !selectedRefFileBase64) {
+            showError("Please provide a Livery Style Prompt OR upload a Reference Livery Image.");
+            return;
+        }
+
+        showLoading(true);
+        errorMessage.classList.add('hidden');
+        resultImage.style.display = 'none';
+        
+        const customPrompt = stylePromptInput.value.trim();
+        
+        const baseInstruction = `Analyze this car livery Ambient Occlusion (AO) breakout PNG. The white areas represent paintable car body panels laid out flat. Generate a new, high-quality image filling the white areas with a custom, high-detail livery. CRITICAL ORIENTATION INSTRUCTIONS: The livery design MUST flow correctly across all panels. Elements like stripes, flames, or characters must be oriented to face the 'front' of the car for that panel. For side panels (left/right), ensure the flow is horizontally mirrored (e.g., text readable from left to right on both sides, or flames pointing backward on both sides) but CRITICALLY, the vertical orientation must be consistent (not flipped upside down on the right side). If a design element is upright on the left side, it must also be upright on the right side. Do not include any sponsor logos, branding, or text. Maintain the structural integrity of the black lines and keep all other areas (black, gray, transparent) exactly as they are in the input image.`;
+
+        // Start building parts for the payload
+        const parts = [];
+        parts.push({ text: baseInstruction });
+
+        // Add the main AO image
+        parts.push({
+            inlineData: {
+                mimeType: "image/png",
+                data: selectedAOFileBase64.split(',')[1] // Use the data part
+            }
+        });
+
+        // Add reference image if available
+        if (selectedRefFileBase64) {
+            parts.push({
+                text: "Here is a reference image for inspiration. Incorporate its style, colors, and design elements while adhering to all previous instructions regarding orientation, flow, and absence of sponsors:"
+            });
+            // We use the mimeType from the full base64 string to ensure correctness
+            const refMimeTypeMatch = selectedRefFileBase64.match(/^data:(.+?);base64,/);
+            const refMimeType = refMimeTypeMatch ? refMimeTypeMatch[1] : 'image/jpeg';
+            
+            parts.push({
+                inlineData: {
+                    mimeType: refMimeType, 
+                    data: selectedRefFileBase64.split(',')[1] // Ensure only base64 data
+                }
+            });
+        }
+
+        // Add the style prompt if available
+        if (customPrompt) {
+            parts.push({ text: `Livery Style Prompt: ${customPrompt}.` });
+        } else if (!selectedRefFileBase64) {
+            // Fallback prompt if no custom prompt and no reference image
+            parts.push({ text: `Style: A vibrant, aggressive, custom drift-style livery with sharp lines, bold colors, and dynamic graphics, possibly incorporating Japanese drift culture elements.` });
+        }
+
+
+        const payload = {
+            contents: [{ parts: parts }],
+            generationConfig: {
+                responseModalities: ['TEXT', 'IMAGE']
+            },
+        };
+
+        const options = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        };
+
+        try {
+            const response = await fetchWithBackoff(getApiUrl(IMAGE_MODEL), options);
+            const result = await response.json();
+
+            const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+            if (base64Data) {
+                const imageUrl = `data:image/png;base64,${base64Data}`;
+                resultImage.src = imageUrl;
+                resultImage.style.display = 'block'; 
+                downloadButton.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+                outputSection.classList.remove('hidden'); 
+            } else {
+                console.error("API response missing image data:", result);
+                showError("Generation failed: The AI did not return a valid image. This can happen with very complex or ambiguous inputs. Please try again with a clearer prompt or a different reference image.");
+            }
+
+        } catch (error) {
+            console.error("API Fetch Error:", error);
+            showError(`A critical error occurred during image generation: ${error.message}.`);
+        } finally {
+            showLoading(false);
+            // Re-enable generate button after process, as long as AO is present
+            if (selectedAOFileBase64) {
+                updateGenerateButtonState(); 
+            }
+        }
+    }
+
+    // Function to download the generated image
+    function downloadImage() {
+        if (resultImage.src && resultImage.src !== '') {
+            const link = document.createElement('a');
+            link.href = resultImage.src;
+            link.download = 'ai-drift-livery.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            showError("No image available to download.");
+        }
+    }
+
+    // Initial state setup
+    updateGenerateButtonState();
+</script>
+</body>
+</html>
